@@ -1,19 +1,27 @@
 import { FirebaseObjectObservable } from './index';
 import { Observer } from 'rxjs/Observer';
 import { observeOn } from 'rxjs/operator/observeOn';
-import * as firebase from 'firebase';
+import * as firebase from 'firebase/app';
+import 'firebase/database';
 import * as utils from '../utils';
-import { FirebaseObjectFactoryOpts } from '../interfaces';
+import { FirebaseObjectFactoryOpts, PathReference, DatabaseReference } from '../interfaces';
 
 export function FirebaseObjectFactory (
-  absoluteUrlOrDbRef: string | firebase.database.Reference,
+  pathRef: PathReference,
   { preserveSnapshot }: FirebaseObjectFactoryOpts = {}): FirebaseObjectObservable<any> {
 
-  let ref: firebase.database.Reference;
+  let ref: DatabaseReference;
 
-  utils.checkForUrlOrFirebaseRef(absoluteUrlOrDbRef, {
-    isUrl: () => ref = firebase.database().refFromURL(<string>absoluteUrlOrDbRef),
-    isRef: () => ref = <firebase.database.Reference>absoluteUrlOrDbRef
+  utils.checkForUrlOrFirebaseRef(pathRef, {
+    isUrl: () => {
+      const path = pathRef as string;
+      if(utils.isAbsoluteUrl(path)) {
+        ref = firebase.database().refFromURL(path)
+      } else {
+        ref = firebase.database().ref(path);
+      }      
+    },
+    isRef: () => ref = <DatabaseReference>pathRef
   });
 
   const objectObservable = new FirebaseObjectObservable((obs: Observer<any>) => {

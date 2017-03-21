@@ -1,35 +1,19 @@
-import * as firebase from 'firebase';
-import {
-  FirebaseListFactory,
-  FirebaseListObservable,
-  FirebaseObjectFactory,
-  onChildAdded,
-  onChildChanged,
-  onChildRemoved,
-  onChildUpdated,
-} from './index';
-import {
-  FIREBASE_PROVIDERS,
-  defaultFirebase,
-  FirebaseApp,
-  FirebaseAppConfig,
-  AngularFire,
-  AngularFireModule
-} from '../angularfire2';
-import {
-  TestBed,
-  inject
-} from '@angular/core/testing';
+import * as firebase from 'firebase/app';
+import { FirebaseListFactory, FirebaseListObservable, FirebaseObjectFactory, onChildAdded, onChildChanged, onChildRemoved, onChildUpdated } from './index';
+import { FIREBASE_PROVIDERS, FirebaseApp, FirebaseAppConfig, AngularFire, AngularFireModule} from '../angularfire2';
+import { TestBed, inject } from '@angular/core/testing';
 import * as utils from '../utils';
 import { Query, AFUnwrappedDataSnapshot } from '../interfaces';
 import { Subscription, Observable, Subject } from 'rxjs';
 import { COMMON_CONFIG, ANON_AUTH_CONFIG } from '../test-config';
 import { _do } from 'rxjs/operator/do';
+import { map } from 'rxjs/operator/map';
 import { skip } from 'rxjs/operator/skip';
 import { take } from 'rxjs/operator/take';
+import { toArray } from 'rxjs/operator/toArray';
 import { toPromise } from 'rxjs/operator/toPromise';
 
-const rootDatabaseUrl = COMMON_CONFIG.databaseURL;
+const questionsPath = 'questions';
 
 function queryTest(observable: Observable<any>, subject: Subject<any>, done: any) {
   let nexted = false;
@@ -65,15 +49,21 @@ describe('FirebaseListFactory', () => {
     app.delete().then(done, done.fail);
   });
 
-  describe('constructor', () => {
+  describe('<constructor>', () => {
 
     it('should accept a Firebase db url in the constructor', () => {
-      const list = FirebaseListFactory(`${rootDatabaseUrl}/questions`);
+      const list = FirebaseListFactory(`questions`);
       expect(list instanceof FirebaseListObservable).toBe(true);
     });
 
     it('should accept a Firebase db ref in the constructor', () => {
-      const list = FirebaseListFactory(firebase.database().refFromURL(`${rootDatabaseUrl}/questions`));
+      const list = FirebaseListFactory(firebase.database().ref(`questions`));
+      expect(list instanceof FirebaseListObservable).toBe(true);
+    });
+
+    it('should take an absolute url in the constructor', () => {
+      const absoluteUrl = COMMON_CONFIG.databaseURL + '/questions';
+      const list = FirebaseListFactory(absoluteUrl);
       expect(list instanceof FirebaseListObservable).toBe(true);
     });
 
@@ -93,7 +83,7 @@ describe('FirebaseListFactory', () => {
       it('equalTo - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             equalTo: subject
@@ -106,7 +96,7 @@ describe('FirebaseListFactory', () => {
       it('startAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             startAt: subject
@@ -119,7 +109,7 @@ describe('FirebaseListFactory', () => {
       it('endAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             endAt: subject
@@ -131,7 +121,7 @@ describe('FirebaseListFactory', () => {
 
       it('should throw an error if limitToLast and limitToFirst are chained', () => {
 
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             limitToFirst: 10,
@@ -143,7 +133,7 @@ describe('FirebaseListFactory', () => {
 
       it('should throw an error if startAt is used with equalTo', () => {
 
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             equalTo: 10,
@@ -155,7 +145,7 @@ describe('FirebaseListFactory', () => {
 
       it('should throw an error if endAt is used with equalTo', () => {
 
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             equalTo: 10,
@@ -167,7 +157,7 @@ describe('FirebaseListFactory', () => {
 
       it('should throw an error if startAt and endAt is used with equalTo', () => {
 
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             equalTo: 10,
@@ -192,7 +182,7 @@ describe('FirebaseListFactory', () => {
       it('equalTo - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByValue: true,
             equalTo: subject
@@ -205,7 +195,7 @@ describe('FirebaseListFactory', () => {
       it('startAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByValue: true,
             startAt: subject
@@ -218,7 +208,7 @@ describe('FirebaseListFactory', () => {
       it('endAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByValue: true,
             endAt: subject
@@ -242,7 +232,7 @@ describe('FirebaseListFactory', () => {
       it('equalTo - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByKey: true,
             equalTo: subject
@@ -255,7 +245,7 @@ describe('FirebaseListFactory', () => {
       it('startAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByKey: true,
             startAt: subject
@@ -268,7 +258,7 @@ describe('FirebaseListFactory', () => {
       it('endAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByKey: true,
             endAt: subject
@@ -291,7 +281,7 @@ describe('FirebaseListFactory', () => {
       it('equalTo - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByKey: true,
             equalTo: subject
@@ -304,7 +294,7 @@ describe('FirebaseListFactory', () => {
       it('startAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByKey: true,
             startAt: subject
@@ -317,7 +307,7 @@ describe('FirebaseListFactory', () => {
       it('endAt - should re-run a query when the observable value has emitted', (done: any) => {
 
         const subject = new Subject();
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByKey: true,
             endAt: subject
@@ -333,7 +323,7 @@ describe('FirebaseListFactory', () => {
   describe('shape', () => {
 
     it('should have a a FirebaseListObservable shape when queried', () => {
-        const observable = FirebaseListFactory(rootDatabaseUrl, {
+        const observable = FirebaseListFactory(questionsPath, {
           query: {
             orderByChild: 'height',
             equalTo: '1'
@@ -364,8 +354,8 @@ describe('FirebaseListFactory', () => {
       val2 = { key: 'key2' };
       val3 = { key: 'key3' };
       firebase.database().ref().remove(done);
-      questions = FirebaseListFactory(`${rootDatabaseUrl}/questions`);
-      questionsSnapshotted = FirebaseListFactory(`${rootDatabaseUrl}/questionssnapshot`, { preserveSnapshot: true });
+      questions = FirebaseListFactory(`questions`);
+      questionsSnapshotted = FirebaseListFactory(`questionssnapshot`, { preserveSnapshot: true });
       ref = questions.$ref;
       refSnapshotted = questionsSnapshotted.$ref;
     });
@@ -391,16 +381,42 @@ describe('FirebaseListFactory', () => {
     });
 
 
-    it('should emit a new value when a child moves', (done: any) => {
-       let question = skipAndTake(questions, 1, 2)
-       subscription = _do.call(question, (data: any) => {
-          expect(data.length).toBe(2);
-          expect(data[0].push2).toBe(true);
-          expect(data[1].push1).toBe(true);
+    it('should be resistant to non-asynchronous child_added quirks', (done: any) => {
+
+      // If push is called (or set or update, too, I guess) immediately after
+      // an on or once listener is added, it appears that the on or once
+      // child_added listeners are invoked immediately - i.e. not
+      // asynchronously - and the list implementation needs to support that.
+
+      questions.$ref.ref.push({ number: 1 })
+        .then(() => {
+          let calls = [];
+          questions.$ref.ref.once('child_added', (snap) => calls.push('child_added:' + snap.val().number));
+          skipAndTake(questions).subscribe(
+            (list) => {
+              expect(calls).toEqual(['child_added:2', 'pushed']);
+              expect(list.map(i => i.number)).toEqual([1, 2]);
+              done();
+            },
+            done.fail
+          );
+          questions.push({ number: 2 });
+          calls.push('pushed');
         })
-        .subscribe(() => {
-          done();
-        }, done.fail);
+        .catch(done.fail);
+    });
+
+
+    it('should emit a new value when a child moves', (done: any) => {
+     let question = skipAndTake(questions, 1, 2)
+     subscription = _do.call(question, (data: any) => {
+        expect(data.length).toBe(2);
+        expect(data[0].push2).toBe(true);
+        expect(data[1].push1).toBe(true);
+      })
+      .subscribe(() => {
+        done();
+      }, done.fail);
 
       var child1 = ref.push({ push1: true }, () => {
         ref.push({ push2: true }, () => {
@@ -474,6 +490,63 @@ describe('FirebaseListFactory', () => {
         done.fail
       );
       questionsSnapshotted.push({ name: 'alice' });
+    });
+
+
+    it('should support null for equalTo queries', (done: any) => {
+
+      questions.$ref.ref.set({
+        val1,
+        val2: Object.assign({}, val2, { extra: true }),
+        val3: Object.assign({}, val3, { extra: true }),
+      })
+      .then(() => {
+
+        var query = FirebaseListFactory(questions.$ref.ref, {
+          query: {
+            orderByChild: "extra",
+            equalTo: null
+          }
+        });
+
+        take.call(query, 1).subscribe(
+          (list) => {
+            expect(list.length).toEqual(1);
+            expect(list[0].$key).toEqual("val1");
+            done();
+          },
+          done.fail
+        );
+      });
+    });
+
+
+    it('should support null for startAt/endAt queries', (done: any) => {
+
+      questions.$ref.ref.set({
+        val1,
+        val2: Object.assign({}, val2, { extra: true }),
+        val3: Object.assign({}, val3, { extra: true }),
+      })
+      .then(() => {
+
+        var query = FirebaseListFactory(questions.$ref.ref, {
+          query: {
+            orderByChild: "extra",
+            startAt: null,
+            endAt: null
+          }
+        });
+
+        take.call(query, 1).subscribe(
+          (list) => {
+            expect(list.length).toEqual(1);
+            expect(list[0].$key).toEqual("val1");
+            done();
+          },
+          done.fail
+        );
+      });
     });
 
 
@@ -584,7 +657,7 @@ describe('FirebaseListFactory', () => {
       })
       .run(() => {
         // Creating a new observable so that the current zone is captured.
-        subscription = FirebaseListFactory(`${rootDatabaseUrl}/questions`)
+        subscription = FirebaseListFactory(`questions`)
           .filter(d => d
             .map(v => v.$value)
             .indexOf('in-the-zone') > -1)
@@ -635,6 +708,180 @@ describe('FirebaseListFactory', () => {
         keyToRemove = lastKey;
       });
     });
+
+    describe('startAt(value, key)', () => {
+
+      it('should support the optional key parameter to startAt', (done) => {
+
+        questions.$ref.ref.set({
+          val1: Object.assign({}, val1, { data: 0 }),
+          val2: Object.assign({}, val2, { data: 0 }),
+          val3: Object.assign({}, val3, { data: 0 })
+        })
+        .then(() => {
+
+          let query1 = FirebaseListFactory(`questions`, {
+            query: {
+              orderByChild: 'data',
+              startAt: { value: 0 }
+            }
+          });
+          query1 = take.call(query1, 1);
+          query1 = toPromise.call(query1);
+
+          let query2 = FirebaseListFactory(`questions`, {
+            query: {
+              orderByChild: 'data',
+              startAt: { value: 0, key: 'val2' }
+            }
+          });
+          query2 = take.call(query2, 1);
+          query2 = toPromise.call(query2);
+
+          Promise.all([query1, query2]).then(([list1, list2]) => {
+            expect(list1.map(i => i.$key)).toEqual(['val1', 'val2', 'val3']);
+            expect(list2.map(i => i.$key)).toEqual(['val2', 'val3']);
+            done();
+          });
+        })
+        .catch(done.fail);
+      });
+
+    });
+
+    describe('equalTo(value, key)', () => {
+
+      it('should support the optional key parameter to equalTo', (done) => {
+
+        questions.$ref.ref.set({
+          val1: Object.assign({}, val1, { data: 0 }),
+          val2: Object.assign({}, val2, { data: 0 }),
+          val3: Object.assign({}, val3, { data: 0 })
+        })
+        .then(() => {
+
+          let query1 = FirebaseListFactory(`questions`, {
+            query: {
+              orderByChild: 'data',
+              equalTo: { value: 0 }
+            }
+          });
+          query1 = take.call(query1, 1);
+          query1 = toPromise.call(query1);
+
+          let query2 = FirebaseListFactory(`questions`, {
+            query: {
+              orderByChild: 'data',
+              equalTo: { value: 0, key: 'val2' }
+            }
+          });
+          query2 = take.call(query2, 1);
+          query2 = toPromise.call(query2);
+
+          Promise.all([query1, query2]).then(([list1, list2]) => {
+            expect(list1.map(i => i.$key)).toEqual(['val1', 'val2', 'val3']);
+            expect(list2.map(i => i.$key)).toEqual(['val2']);
+            done();
+          });
+        })
+        .catch(done.fail);
+      });
+
+    });
+
+    describe('endAt(value, key)', () => {
+
+      it('should support the optional key parameter to endAt', (done) => {
+
+        questions.$ref.ref.set({
+          val1: Object.assign({}, val1, { data: 0 }),
+          val2: Object.assign({}, val2, { data: 0 }),
+          val3: Object.assign({}, val3, { data: 0 })
+        })
+        .then(() => {
+
+          let query1 = FirebaseListFactory(`questions`, {
+            query: {
+              orderByChild: 'data',
+              endAt: { value: 0 }
+            }
+          });
+          query1 = take.call(query1, 1);
+          query1 = toPromise.call(query1);
+
+          let query2 = FirebaseListFactory(`questions`, {
+            query: {
+              orderByChild: 'data',
+              endAt: { value: 0, key: 'val2' }
+            }
+          });
+          query2 = take.call(query2, 1);
+          query2 = toPromise.call(query2);
+
+          Promise.all([query1, query2]).then(([list1, list2]) => {
+            expect(list1.map(i => i.$key)).toEqual(['val1', 'val2', 'val3']);
+            expect(list2.map(i => i.$key)).toEqual(['val1', 'val2']);
+            done();
+          });
+        })
+        .catch(done.fail);
+      });
+
+    });
+
+    describe('observable queries (issue #830)', () => {
+
+      it('should not emit the results of previous queries', (done) => {
+
+        questions.$ref.ref.set({
+          key1: { even: false, value: 1 },
+          key2: { even: true, value: 2 }
+        })
+        .then(() => {
+
+          let subject = new Subject<boolean>();
+          let query = FirebaseListFactory(`questions`, {
+            query: {
+              orderByChild: 'even',
+              equalTo: subject
+            }
+          });
+
+          query = map.call(query, (list, index) => {
+            switch (index) {
+            case 0:
+              subject.next(true);
+              break;
+            case 1:
+              questions.$ref.ref.update({
+                key3: { even: false, value: 3 },
+                key4: { even: true, value: 4 }
+              });
+              break;
+            default:
+              break;
+            }
+            return list;
+          });
+          query = take.call(query, 3);
+          query = toArray.call(query);
+
+          toPromise.call(query).then((emits) => {
+            expect(emits.map(e => e.map(i => i.$key))).toEqual([
+              ['key1'],
+              ['key2'],
+              ['key2', 'key4']
+            ]);
+            done();
+          });
+
+          subject.next(false);
+        })
+        .catch(done.fail);
+      });
+
+    });
+
   });
 });
 

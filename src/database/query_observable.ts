@@ -6,16 +6,8 @@ import { combineLatest } from 'rxjs/operator/combineLatest';
 import { merge } from 'rxjs/operator/merge';
 import { map } from 'rxjs/operator/map';
 import { auditTime } from 'rxjs/operator/auditTime';
-import {
-  Query,
-  ScalarQuery,
-  OrderByOptions,
-  OrderBySelection,
-  LimitToOptions,
-  LimitToSelection,
-  Primitive
-} from '../interfaces';
-import { isNil } from '../utils';
+import { Query, ScalarQuery, OrderByOptions, OrderBySelection, LimitToOptions, LimitToSelection, Primitive } from '../interfaces';
+import { hasKey, isNil } from '../utils';
 
 export function observeQuery(query: Query, audit: boolean = true): Observable<ScalarQuery> {
   if (isNil(query)) {
@@ -68,15 +60,15 @@ export function observeQuery(query: Query, audit: boolean = true): Observable<Sc
           }
         }
 
-        if (!isNil(startAt)) {
+        if (startAt !== undefined) {
           serializedOrder.startAt = startAt;
         }
 
-        if (!isNil(endAt)) {
+        if (endAt !== undefined) {
           serializedOrder.endAt = endAt;
         }
 
-        if (!isNil(equalTo)) {
+        if (equalTo !== undefined) {
           serializedOrder.equalTo = equalTo;
         }
 
@@ -127,13 +119,13 @@ export function getLimitToObservables(query: Query): Observable<LimitToSelection
 export function getStartAtObservable(query: Query): Observable<Primitive> {
   if (query.startAt instanceof Observable) {
     return query.startAt;
-  } else if (typeof query.startAt !== 'undefined') {
+  } else if (hasKey(query, 'startAt')) {
     return new Observable<Primitive>(subscriber => {
       subscriber.next(query.startAt);
     });
   } else {
     return new Observable<Primitive>(subscriber => {
-      subscriber.next(null);
+      subscriber.next(undefined);
     });
   }
 }
@@ -141,13 +133,13 @@ export function getStartAtObservable(query: Query): Observable<Primitive> {
 export function getEndAtObservable(query: Query): Observable<Primitive> {
   if (query.endAt instanceof Observable) {
     return query.endAt;
-  } else if (typeof query.endAt !== 'undefined') {
+  } else if (hasKey(query, 'endAt')) {
     return new Observable<Primitive>(subscriber => {
       subscriber.next(query.endAt);
     });
   } else {
     return new Observable<Primitive>(subscriber => {
-      subscriber.next(null);
+      subscriber.next(undefined);
     });
   }
 }
@@ -155,13 +147,13 @@ export function getEndAtObservable(query: Query): Observable<Primitive> {
 export function getEqualToObservable(query: Query): Observable<Primitive> {
   if (query.equalTo instanceof Observable) {
     return query.equalTo;
-  } else if (typeof query.equalTo !== 'undefined') {
+  } else if (hasKey(query, 'equalTo')) {
     return new Observable<Primitive>(subscriber => {
       subscriber.next(query.equalTo);
     });
   } else {
     return new Observable<Primitive>(subscriber => {
-      subscriber.next(null);
+      subscriber.next(undefined);
     });
   }
 }

@@ -1,4 +1,4 @@
-import * as firebase from 'firebase';
+import * as firebase from 'firebase/app';
 import { Observable } from 'rxjs/Observable';
 
 export interface FirebaseAppConfig {
@@ -88,3 +88,9 @@ export enum QueryOptions {
 }
 
 export type Primitive = number | string | boolean;
+
+export type DatabaseSnapshot = firebase.database.DataSnapshot;
+export type DatabaseReference = firebase.database.Reference;
+export type DatabaseQuery = firebase.database.Query;
+export type QueryReference = DatabaseReference | DatabaseQuery;
+export type PathReference = QueryReference | string;

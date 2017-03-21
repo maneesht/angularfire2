@@ -33,11 +33,11 @@ describe('observeQuery', () => {
     expect(observeQuery({}) instanceof Observable).toBe(true);
   });
 
-  it('should immediately emit a query object if passed a plain JS object with only scalar values', () => {
-    var nextSpy = jasmine.createSpy('next');
-    var completeSpy = jasmine.createSpy('complete');
-    var query = { orderByChild: 'height', equalTo: 10 };
-    var obs = observeQuery(query, false);
+  it('should immediately emit a query object if passed a POJO with only scalar values', () => {
+    let nextSpy = jasmine.createSpy('next');
+    let completeSpy = jasmine.createSpy('complete');
+    let query = { orderByChild: 'height', equalTo: 10 };
+    let obs = observeQuery(query, false);
     obs.subscribe(nextSpy, null, completeSpy);
     expect(nextSpy).toHaveBeenCalledWith({
       orderByChild: 'height',
@@ -47,10 +47,10 @@ describe('observeQuery', () => {
 
 
   it('should return null if called with no query', () => {
-    var nextSpy = jasmine.createSpy('next');
-    var completeSpy = jasmine.createSpy('complete');
-    var query:any = null;
-    var obs = observeQuery(query, false);
+    let nextSpy = jasmine.createSpy('next');
+    let completeSpy = jasmine.createSpy('complete');
+    let query:any = null;
+    let obs = observeQuery(query, false);
     obs.subscribe(nextSpy, null, completeSpy);
     expect(nextSpy).toHaveBeenCalledWith(null);
     expect(completeSpy).toHaveBeenCalled();
@@ -58,13 +58,13 @@ describe('observeQuery', () => {
 
 
   it('should emit an updated query if an attached observable emits new value', () => {
-    var nextSpy = jasmine.createSpy('next');
-    var completeSpy = jasmine.createSpy('complete');
-    var query = {
+    let nextSpy = jasmine.createSpy('next');
+    let completeSpy = jasmine.createSpy('complete');
+    let query = {
       orderByKey: new Subject<boolean>()
     };
-    var obs = observeQuery(query, false);
-    var noOrderyQuery = { orderByKey: false };
+    let obs = observeQuery(query, false);
+    let noOrderyQuery = { orderByKey: false };
     obs.subscribe(nextSpy, null, completeSpy);
     query.orderByKey.next(true);
     expect(nextSpy).toHaveBeenCalledWith({ orderByKey: true});
@@ -76,12 +76,12 @@ describe('observeQuery', () => {
 
 
   it('should omit a key from the query if its observable emits null', () => {
-    var nextSpy = jasmine.createSpy('next');
-    var completeSpy = jasmine.createSpy('complete');
-    var query = {
+    let nextSpy = jasmine.createSpy('next');
+    let completeSpy = jasmine.createSpy('complete');
+    let query = {
       orderByKey: new Subject<boolean>()
     };
-    var obs = observeQuery(query, false);
+    let obs = observeQuery(query, false);
     obs.subscribe(nextSpy, null, completeSpy);
     query.orderByKey.next(true);
     expect(nextSpy).toHaveBeenCalledWith({ orderByKey: true });
@@ -92,14 +92,14 @@ describe('observeQuery', () => {
 
 
   it('should omit only the orderBy type of the last emitted orderBy observable', () => {
-    var nextSpy = jasmine.createSpy('next');
-    var query = {
+    let nextSpy = jasmine.createSpy('next');
+    let query = {
       orderByKey: new Subject<boolean>(),
       orderByPriority: new Subject<boolean>(),
       orderByValue: new Subject<boolean>(),
       orderByChild: new Subject<string>()
     };
-    var obs = observeQuery(query, false);
+    let obs = observeQuery(query, false);
     obs.subscribe(nextSpy);
     query.orderByChild.next('height');
     expect(nextSpy).toHaveBeenCalledWith({
@@ -126,8 +126,8 @@ describe('observeQuery', () => {
 
 describe('getOrderObservables', () => {
   it('should be subscribable event if no observables found for orderby', () => {
-    var nextSpy = jasmine.createSpy('next');
-    var obs = getOrderObservables({});
+    let nextSpy = jasmine.createSpy('next');
+    let obs = getOrderObservables({});
     obs.subscribe(nextSpy);
     expect(nextSpy).toHaveBeenCalledWith(null);
   });
@@ -431,12 +431,61 @@ describe('query combinations', () => {
 });
 
 
+describe('null values', () => {
+
+  it('should build an equalTo() query with a null scalar value', (done: any) => {
+    scalarQueryTest({
+      orderByChild: 'height',
+      equalTo: null
+    }, done);
+  });
+
+  it('should build a startAt() query with a null scalar value', (done: any) => {
+    scalarQueryTest({
+      orderByChild: 'height',
+      startAt: null
+    }, done);
+  });
+
+  it('should build an endAt() query with a null scalar value', (done: any) => {
+    scalarQueryTest({
+      orderByChild: 'height',
+      endAt: null
+    }, done);
+  });
+
+  it('should build an equalTo() query with a null observable value', (done: any) => {
+    const query = {
+      orderByChild: 'height',
+      equalTo: new Subject()
+    };
+    observableQueryTest(query, { equalTo: null }, done);
+  });
+
+  it('should build a startAt() query with a null observable value', (done: any) => {
+    const query = {
+      orderByChild: 'height',
+      startAt: new Subject()
+    };
+    observableQueryTest(query, { startAt: null }, done);
+  });
+
+  it('should build an endAt() query with a null observable value', (done: any) => {
+    const query = {
+      orderByChild: 'height',
+      endAt: new Subject()
+    };
+    observableQueryTest(query, { endAt: null }, done);
+  });
+
+});
+
 describe('audited queries', () => {
 
   it('should immediately emit if not audited', () => {
-    var nextSpy = jasmine.createSpy('next');
-    var query = { orderByChild: 'height', startAt: new Subject(), endAt: new Subject() };
-    var obs = observeQuery(query, false);
+    let nextSpy = jasmine.createSpy('next');
+    let query = { orderByChild: 'height', startAt: new Subject(), endAt: new Subject() };
+    let obs = observeQuery(query, false);
     obs.subscribe(nextSpy);
     query.startAt.next(5);
     expect(nextSpy).not.toHaveBeenCalled();
@@ -462,8 +511,8 @@ describe('audited queries', () => {
 
   it('should emit the last query (in the event loop) if audited', (done: any) => {
     let emits = 0;
-    var query = { orderByChild: 'height', startAt: new Subject(), endAt: new Subject() };
-    var obs = observeQuery(query, true);
+    let query = { orderByChild: 'height', startAt: new Subject(), endAt: new Subject() };
+    let obs = observeQuery(query, true);
     obs.subscribe(result => {
       switch (++emits) {
       case 1:
