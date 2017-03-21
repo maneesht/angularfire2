@@ -1,45 +1,39 @@
-import * as firebase from 'firebase/app';
-import * as utils from '../utils';
-import 'firebase/database';
+import * as firebase from 'firebase';
 import { AFUnwrappedDataSnapshot } from '../interfaces';
 import { FirebaseListObservable } from './firebase_list_observable';
 import { Observer } from 'rxjs/Observer';
 import { observeOn } from 'rxjs/operator/observeOn';
 import { observeQuery } from './query_observable';
-import { Query, FirebaseListFactoryOpts, PathReference, QueryReference, DatabaseQuery, DatabaseReference } from '../interfaces';
-import { switchMap } from 'rxjs/operator/switchMap';
+import { Query, FirebaseListFactoryOpts } from '../interfaces';
+import * as utils from '../utils';
+import { mergeMap } from 'rxjs/operator/mergeMap';
 import { map } from 'rxjs/operator/map';
 
 export function FirebaseListFactory (
-  pathRef: PathReference,
-  { preserveSnapshot, query = {} } :FirebaseListFactoryOpts = {}): FirebaseListObservable<any> {
+  absoluteUrlOrDbRef:string |
+  firebase.database.Reference |
+  firebase.database.Query,
+  {preserveSnapshot, query = {}}:FirebaseListFactoryOpts = {}): FirebaseListObservable<any> {
 
-  let ref: QueryReference;
+  let ref: firebase.database.Reference | firebase.database.Query;
 
-  utils.checkForUrlOrFirebaseRef(pathRef, {
-    isUrl: () => {
-      const path = pathRef as string;
-      if(utils.isAbsoluteUrl(path)) {
-        ref = firebase.database().refFromURL(path)
-      } else {
-        ref = firebase.database().ref(path);
-      } 
-    },
-    isRef: () => ref = <DatabaseReference>pathRef,
-    isQuery: () => ref = <DatabaseQuery>pathRef,
+  utils.checkForUrlOrFirebaseRef(absoluteUrlOrDbRef, {
+    isUrl: () => ref = firebase.database().refFromURL(<string>absoluteUrlOrDbRef),
+    isRef: () => ref = <firebase.database.Reference>absoluteUrlOrDbRef,
+    isQuery: () => ref = <firebase.database.Query>absoluteUrlOrDbRef,
   });
 
   // if it's just a reference or string, create a regular list observable
-  if ((utils.isFirebaseRef(pathRef) ||
-       utils.isString(pathRef)) &&
+  if ((utils.isFirebaseRef(absoluteUrlOrDbRef) ||
+       utils.isString(absoluteUrlOrDbRef)) &&
        utils.isEmptyObject(query)) {
     return firebaseListObservable(ref, { preserveSnapshot });
   }
 
   const queryObs = observeQuery(query);
   return new FirebaseListObservable(ref, subscriber => {
-    let sub = switchMap.call(map.call(queryObs, query => {
-      let queried: DatabaseQuery = ref;
+    let sub = mergeMap.call(map.call(queryObs, query => {
+      let queried: firebase.database.Query = ref;
       // Only apply the populated keys
       // apply ordering and available querying options
       // eg: ref.orderByChild('height').startAt(3)
@@ -56,11 +50,7 @@ export function FirebaseListFactory (
 
       // check equalTo
       if (utils.hasKey(query, "equalTo")) {
-        if (utils.hasKey(query.equalTo, "value")) {
-          queried = queried.equalTo(query.equalTo.value, query.equalTo.key);
-        } else {
-          queried = queried.equalTo(query.equalTo);
-        }
+        queried = queried.equalTo(query.equalTo);
 
         if (utils.hasKey(query, "startAt") || utils.hasKey(query, "endAt")) {
           throw new Error('Query Error: Cannot use startAt or endAt with equalTo.');
@@ -80,19 +70,11 @@ export function FirebaseListFactory (
 
       // check startAt
       if (utils.hasKey(query, "startAt")) {
-        if (utils.hasKey(query.startAt, "value")) {
-          queried = queried.startAt(query.startAt.value, query.startAt.key);
-        } else {
           queried = queried.startAt(query.startAt);
-        }
       }
 
       if (utils.hasKey(query, "endAt")) {
-        if (utils.hasKey(query.endAt, "value")) {
-          queried = queried.endAt(query.endAt.value, query.endAt.key);
-        } else {
           queried = queried.endAt(query.endAt);
-        }
       }
 
       if (!utils.isNil(query.limitToFirst) && query.limitToLast) {
@@ -119,78 +101,95 @@ export function FirebaseListFactory (
 }
 
 /**
- * Creates a FirebaseListObservable from a reference or query. Options can be provided as a second 
- * parameter. This function understands the nuances of the Firebase SDK event ordering and other
- * quirks. This function takes into account that not all .on() callbacks are guaranteed to be
- * asynchonous. It creates a initial array from a promise of ref.once('value'), and then starts
- * listening to child events. When the initial array is loaded, the observable starts emitting values.
+ * Creates a FirebaseListObservable from a reference or query. Options can be provided as a second parameter.
+ * This function understands the nuances of the Firebase SDK event ordering and other quirks. This function
+ * takes into account that not all .on() callbacks are guaranteed to be asynchonous. It creates a initial array
+ * from a promise of ref.once('value'), and then starts listening to child events. When the initial array
+ * is loaded, the observable starts emitting values.
  */
-function firebaseListObservable(ref: firebase.database.Reference | DatabaseQuery, {preserveSnapshot}: FirebaseListFactoryOpts = {}): FirebaseListObservable<any> {
-
+function firebaseListObservable(ref: firebase.database.Reference | firebase.database.Query, {preserveSnapshot}: FirebaseListFactoryOpts = {}): FirebaseListObservable<any> {
   const toValue = preserveSnapshot ? (snapshot => snapshot) : utils.unwrapMapFn;
   const toKey = preserveSnapshot ? (value => value.key) : (value => value.$key);
-
+  // Keep track of callback handles for calling ref.off(event, handle)
+  const handles = [];
   const listObs = new FirebaseListObservable(ref, (obs: Observer<any[]>) => {
-
-    // Keep track of callback handles for calling ref.off(event, handle)
-    const handles = [];
-    let hasLoaded = false;
-    let lastLoadedKey: string = null;
-    let array = [];
-
-    // The list children are always added to, removed from and changed within
-    // the array using the child_added/removed/changed events. The value event
-    // is only used to determine when the initial load is complete.
-
-    ref.once('value', (snap: any) => {
-      if (snap.exists()) {
-        snap.forEach((child: any) => {
-          lastLoadedKey = child.key;
+    ref.once('value')
+      .then((snap) => {
+        let initialArray = [];
+        snap.forEach(child => {
+          initialArray.push(toValue(child))
         });
-        if (array.find((child: any) => toKey(child) === lastLoadedKey)) {
-          hasLoaded = true;
-          obs.next(array);
+        return initialArray;
+      })
+      .then((initialArray) => {
+        const isInitiallyEmpty = initialArray.length === 0;
+        let hasInitialLoad = false;
+        let lastKey;
+
+        if (!isInitiallyEmpty) {
+          // The last key in the initial array tells us where
+          // to begin listening in realtime
+          lastKey = toKey(initialArray[initialArray.length - 1]);
         }
-      } else {
-        hasLoaded = true;
-        obs.next(array);
-      }
-    }, err => {
-      if (err) { obs.error(err); obs.complete(); }
-    });
 
-    const addFn = ref.on('child_added', (child: any, prevKey: string) => {
-      array = onChildAdded(array, toValue(child), toKey, prevKey);
-      if (hasLoaded) {
-        obs.next(array);
-      } else if (child.key === lastLoadedKey) {
-        hasLoaded = true;
-        obs.next(array);
-      }
-    }, err => {
-      if (err) { obs.error(err); obs.complete(); }
-    });
-    handles.push({ event: 'child_added', handle: addFn });
+        const addFn = ref.on('child_added', (child: any, prevKey: string) => {
+          // If the initial load has not been set and the current key is
+          // the last key of the initialArray, we know we have hit the
+          // initial load
+          if (!isInitiallyEmpty && !hasInitialLoad) {
+            if (child.key === lastKey) {
+              hasInitialLoad = true;
+              obs.next(initialArray);
+              return;
+            }
+          }
 
-    let remFn = ref.on('child_removed', (child: any) => {
-      array = onChildRemoved(array, toValue(child), toKey);
-      if (hasLoaded) {
-        obs.next(array);
-      }
-    }, err => {
-      if (err) { obs.error(err); obs.complete(); }
-    });
-    handles.push({ event: 'child_removed', handle: remFn });
+          if (hasInitialLoad) {
+            initialArray = onChildAdded(initialArray, toValue(child), toKey, prevKey);
+          }
 
-    let chgFn = ref.on('child_changed', (child: any, prevKey: string) => {
-      array = onChildChanged(array, toValue(child), toKey, prevKey);
-      if (hasLoaded) {
-        obs.next(array);
-      }
-    }, err => {
-      if (err) { obs.error(err); obs.complete(); }
-    });
-    handles.push({ event: 'child_changed', handle: chgFn });
+          // only emit the array after the initial load
+          if (hasInitialLoad) {
+            obs.next(initialArray);
+          }
+        }, err => {
+          if (err) { obs.error(err); obs.complete(); }
+        });
+
+        handles.push({ event: 'child_added', handle: addFn });
+
+        let remFn = ref.on('child_removed', (child: any) => {
+          initialArray = onChildRemoved(initialArray, toValue(child), toKey);
+          if (hasInitialLoad) {
+            obs.next(initialArray);
+          }
+        }, err => {
+          if (err) { obs.error(err); obs.complete(); }
+        });
+        handles.push({ event: 'child_removed', handle: remFn });
+
+        let chgFn = ref.on('child_changed', (child: any, prevKey: string) => {
+          initialArray = onChildChanged(initialArray, toValue(child), toKey, prevKey)
+          if (hasInitialLoad) {
+            // This also manages when the only change is prevKey change
+            obs.next(initialArray);
+          }
+        }, err => {
+          if (err) { obs.error(err); obs.complete(); }
+        });
+        handles.push({ event: 'child_changed', handle: chgFn });
+
+        // If empty emit the array
+        if (isInitiallyEmpty) {
+          obs.next(initialArray);
+          hasInitialLoad = true;
+        }
+      }, err => {
+        if (err) { 
+          obs.error(err); 
+          obs.complete(); 
+        }
+      });
 
     return () => {
       // Loop through callback handles and dispose of each event with handle

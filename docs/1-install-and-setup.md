@@ -12,19 +12,17 @@ If not, you may need to do the following:
 ```bash
 # if you have the wrong cli version only
 npm uninstall -g angular-cli
-npm uninstall -g @angular/cli
-npm cache clean
 
 # reinstall clean version
-npm install -g @angular/cli@latest
+npm install -g angular-cli
 ```
 
 You need the Angular CLI, typings, and TypeScript.
 
 ```bash
-npm install -g @angular/cli@latest
+npm install -g angular-cli
 # or install locally
-npm install @angular/cli --save-dev
+npm install angular-cli --save-dev
 # make sure you have typings installed
 npm install -g typings
 npm install -g typescript

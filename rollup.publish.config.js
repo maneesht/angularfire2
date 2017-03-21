@@ -4,6 +4,6 @@ export default {
   entry: 'dist/index.js',
   dest: 'dist/bundles/angularfire2.umd.js',
   format: 'umd',
-  moduleName: 'angularfire2',
+  moduleName: 'angularFire2',
   globals
 }

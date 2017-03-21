@@ -1,16 +1,28 @@
-import { TestBed, inject } from '@angular/core/testing';
-import { FIREBASE_PROVIDERS, FirebaseApp, FirebaseAppConfig, AngularFire, AngularFireModule } from '../angularfire2';
+import {
+  TestBed,
+  inject
+} from '@angular/core/testing';
+import {
+  FIREBASE_PROVIDERS,
+  defaultFirebase,
+  FirebaseApp,
+  FirebaseAppConfig,
+  AngularFire,
+  AngularFireModule
+} from '../angularfire2';
 import { COMMON_CONFIG, ANON_AUTH_CONFIG } from '../test-config';
 import { FirebaseObjectObservable } from './index';
 import { Observer } from 'rxjs/Observer';
 import { map } from 'rxjs/operator/map';
-import * as firebase from 'firebase/app';
+import * as firebase from 'firebase';
+
+const rootDatabaseUrl = COMMON_CONFIG.databaseURL;
 
 describe('FirebaseObjectObservable', () => {
 
-  let O: FirebaseObjectObservable<any>;
-  let ref: firebase.database.Reference;
-  let app: firebase.app.App;
+  var O:FirebaseObjectObservable<any>;
+  var ref: firebase.database.Reference;
+  var app: firebase.app.App;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -19,7 +31,7 @@ describe('FirebaseObjectObservable', () => {
     inject([FirebaseApp, AngularFire], (firebaseApp: firebase.app.App, _af: AngularFire) => {
       app = firebaseApp;
       ref = firebase.database().ref();
-      O = new FirebaseObjectObservable((observer: Observer<any>) => {
+      O = new FirebaseObjectObservable((observer:Observer<any>) => {
       }, ref);
     })();
   });
@@ -31,11 +43,15 @@ describe('FirebaseObjectObservable', () => {
   });
 
   it('should return an instance of FirebaseObservable when calling operators', () => {
-    let O = new FirebaseObjectObservable((observer: Observer<any>) => { });
+    var O = new FirebaseObjectObservable((observer:Observer<any>) => {});
     expect(map.call(O, noop) instanceof FirebaseObjectObservable).toBe(true);
   });
 
   describe('$ref', () => {
+    // it('should be a firebase.database.Reference', () => {
+    //   expect(O.$ref instanceof database.Reference).toBe(true);
+    // });
+
     it('should match the database path passed in the constructor', () => {
       expect(O.$ref.toString()).toEqual(ref.toString());
     });
@@ -43,8 +59,8 @@ describe('FirebaseObjectObservable', () => {
 
   describe('set', () => {
 
-    it('should call set on the underlying ref', (done: any) => {
-      let setSpy = spyOn(ref, 'set');
+    it('should call set on the underlying ref', (done:any) => {
+      var setSpy = spyOn(ref, 'set');
 
       O.subscribe();
       O.set(1);
@@ -53,7 +69,7 @@ describe('FirebaseObjectObservable', () => {
     });
 
     it('should throw an exception if set when not subscribed', () => {
-      O = new FirebaseObjectObservable((observer: Observer<any>) => { });
+      O = new FirebaseObjectObservable((observer:Observer<any>) => {});
 
       expect(() => {
         O.set('foo');
@@ -65,7 +81,7 @@ describe('FirebaseObjectObservable', () => {
     });
 
 
-    it('should resolve returned thenable when successful', (done: any) => {
+    it('should resolve returned thenable when successful', (done:any) => {
       O.set('foo').then(done, done.fail);
     });
 
@@ -74,7 +90,7 @@ describe('FirebaseObjectObservable', () => {
   describe('update', () => {
     const updateObject = { hot: 'firebae' };
     it('should call update on the underlying ref', () => {
-      let updateSpy = spyOn(ref, 'update');
+      var updateSpy = spyOn(ref, 'update');
 
       O.subscribe();
       O.update(updateObject);
@@ -82,7 +98,7 @@ describe('FirebaseObjectObservable', () => {
     });
 
     it('should throw an exception if updated when not subscribed', () => {
-      O = new FirebaseObjectObservable((observer: Observer<any>) => { });
+      O = new FirebaseObjectObservable((observer:Observer<any>) => {});
 
       expect(() => {
         O.update(updateObject);
@@ -93,7 +109,7 @@ describe('FirebaseObjectObservable', () => {
       O.update(updateObject);
     });
 
-    it('should resolve returned thenable when successful', (done: any) => {
+    it('should resolve returned thenable when successful', (done:any) => {
       O.update(updateObject).then(done, done.fail);
     });
 
@@ -102,7 +118,7 @@ describe('FirebaseObjectObservable', () => {
   describe('remove', () => {
 
     it('should call remove on the underlying ref', () => {
-      let removeSpy = spyOn(ref, 'remove');
+      var removeSpy = spyOn(ref, 'remove');
 
       O.subscribe();
       O.remove();
@@ -110,14 +126,14 @@ describe('FirebaseObjectObservable', () => {
     });
 
     it('should throw an exception if removed when not subscribed', () => {
-      O = new FirebaseObjectObservable((observer: Observer<any>) => { });
+      O = new FirebaseObjectObservable((observer:Observer<any>) => {});
 
       expect(() => {
         O.remove();
       }).toThrowError('No ref specified for this Observable!')
     });
 
-    it('should resolve returned thenable when successful', (done: any) => {
+    it('should resolve returned thenable when successful', (done:any) => {
       O.remove().then(done, done.fail);
     });
 
@@ -125,4 +141,4 @@ describe('FirebaseObjectObservable', () => {
 
 });
 
-function noop() { }
+function noop() {}

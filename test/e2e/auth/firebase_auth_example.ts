@@ -3,6 +3,7 @@ import {bootstrap} from '@angular/platform-browser-dynamic';
 import {
   AuthMethods,
   AuthProviders,
+  defaultFirebase,
   AngularFire,
   FIREBASE_PROVIDERS,
   FirebaseListObservable,
